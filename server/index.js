@@ -2,9 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const app = express();
+
 const port = process.env.PORT || 3000;
 
 const BEARER_TOKEN = process.env.BEARER_TOKEN;
+
+
+
 
 async function getStockPriceHistory(ticker, minutes) {
   try {
@@ -24,20 +28,25 @@ async function getStockPriceHistory(ticker, minutes) {
 
 function filterByTimeRange(priceHistory, minutes) {
   const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
-  return priceHistory.filter(entry => new Date(entry.lastUpdatedAt) >= cutoffTime);
+  return priceHistory.filter(data => new Date(data.lastUpdatedAt) >= cutoffTime);
 }
 
 function calculateAveragePrice(priceHistory) {
   if (!priceHistory.length) return 0;
-  return priceHistory.reduce((sum, entry) => sum + entry.price, 0) / priceHistory.length;
+  return priceHistory.reduce((sum, data) => sum + data.price, 0) / priceHistory.length;
 }
 
-function calculateCorrelation(history1, history2) {
-  const aligned = alignPriceHistories(history1, history2);
+function calculateCorrelation(hist1, hist2) {
+  const aligned = alignPriceHistories(hist1, hist2);
   const prices1 = aligned.map(a => a.price1);
   const prices2 = aligned.map(a => a.price2);
 
-  if (prices1.length < 2) return 0;
+  console.log('Correlation inputs:', { prices1, prices2 });
+
+  if (prices1.length < 2) {
+    console.log('Not enough aligned data points for correlation');
+    return 0;
+  }
 
   const n = prices1.length;
   const mean1 = prices1.reduce((sum, val) => sum + val, 0) / n;
@@ -56,19 +65,24 @@ function calculateCorrelation(history1, history2) {
   std1 = Math.sqrt(std1 / (n - 1));
   std2 = Math.sqrt(std2 / (n - 1));
 
-  return std1 * std2 === 0 ? 0 : cov / (std1 * std2);
+  const correlation = std1 * std2 === 0 ? 0 : cov / (std1 * std2);
+  console.log('Correlation result:', correlation);
+
+  return correlation;
 }
 
-function alignPriceHistories(history1, history2) {
+function alignPriceHistories(hist1, hist2) {
   const aligned = [];
-  const maxTimeDiff = 2 * 60 * 1000; 
+  const maxTimeDiff = 10 * 60 * 1000; 
 
-  for (const entry1 of history1) {
+  console.log('Aligning histories:', { hist1, hist2 });
+
+  for (const entry1 of hist1) {
     const time1 = new Date(entry1.lastUpdatedAt).getTime();
     let closest = null;
     let minTimeDiff = Infinity;
 
-    for (const entry2 of history2) {
+    for (const entry2 of hist2) {
       const time2 = new Date(entry2.lastUpdatedAt).getTime();
       const timeDiff = Math.abs(time1 - time2);
       if (timeDiff < minTimeDiff && timeDiff <= maxTimeDiff) {
@@ -82,6 +96,7 @@ function alignPriceHistories(history1, history2) {
     }
   }
 
+  console.log('Aligned pairs:', aligned);
   return aligned;
 }
 
@@ -113,19 +128,19 @@ app.get('/stockcorrelation', async (req, res) => {
 
   const [ticker1, ticker2] = tickers;
 
-  const history1 = filterByTimeRange(await getStockPriceHistory(ticker1, minutes), minutes);
-  const history2 = filterByTimeRange(await getStockPriceHistory(ticker2, minutes), minutes);
+  const hist1 = filterByTimeRange(await getStockPriceHistory(ticker1, minutes), minutes);
+  const hist2 = filterByTimeRange(await getStockPriceHistory(ticker2, minutes), minutes);
 
   res.json({
-    correlation: calculateCorrelation(history1, history2),
+    correlation: calculateCorrelation(hist1, hist2),
     stocks: {
       [ticker1]: {
-        averagePrice: calculateAveragePrice(history1),
-        priceHistory: history1
+        averagePrice: calculateAveragePrice(hist1),
+        priceHistory: hist1
       },
       [ticker2]: {
-        averagePrice: calculateAveragePrice(history2),
-        priceHistory: history2
+        averagePrice: calculateAveragePrice(hist2),
+        priceHistory: hist2
       }
     }
   });
