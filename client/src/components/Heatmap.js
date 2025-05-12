@@ -25,6 +25,7 @@ function Heatmap({ tickers, correlationData, stockDetails, minutes }) {
             </Typography>
           ))}
         </Box>
+        
         {/* main grid*/}
         {tickers.map((tickerY, yIndex) => (
           <Box key={tickerY} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
