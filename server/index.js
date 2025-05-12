@@ -2,12 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const app = express();
-
+const cors = require('cors');
 const port = process.env.PORT || 3000;
 
 const BEARER_TOKEN = process.env.BEARER_TOKEN;
 
-
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 async function getStockPriceHistory(ticker, minutes) {
